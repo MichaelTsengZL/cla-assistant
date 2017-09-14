@@ -309,21 +309,6 @@ module.exports = function () {
         return deferred.promise;
     };
 
-    var getPullRequestFiles = function (repo, owner, number, token) {
-        return github.call({
-            obj: 'pullRequests',
-            fun: 'getFiles',
-            arg: {
-                repo: repo,
-                owner: owner,
-                number: number,
-            },
-            token: token
-        }).then(function (resp) {
-            return resp.data;
-        });
-    };
-
     var isSignificantPullRequest = function (repo, owner, number, token) {
         if (!repo || !owner || !number || !token) {
             return q.reject(Error('There are NOT enough arguments for isSignificantPullRequest.'));
@@ -332,16 +317,12 @@ module.exports = function () {
             if (typeof item.minFileChanges !== 'number' && typeof item.minCodeChanges !== 'number') {
                 return true;
             }
-            return getPullRequestFiles(repo, owner, number, token).then(function (files) {
-                if (typeof item.minFileChanges === 'number' && files.length >= item.minFileChanges) {
+            return getPR(owner, repo, number, token).then(function (pullRequest) {
+                if (typeof item.minFileChanges === 'number' && pullRequest.changed_files >= item.minFileChanges) {
                     return true;
                 }
-                if (typeof item.minCodeChanges === 'number') {
-                    var sum = 0;
-                    return files.some(function (file) {
-                        sum += file.changes;
-                        return sum >= item.minCodeChanges;
-                    });
+                if (typeof item.minCodeChanges === 'number' && (pullRequest.additions + pullRequest.deletions >= item.minCodeChanges)) {
+                    return true;
                 }
                 return false;
             });
